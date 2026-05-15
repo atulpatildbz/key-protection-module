@@ -17,17 +17,36 @@ set -o pipefail
 
 echo "Starting Schema Test Runner Script..."
 
-# Start WSD Agent in background
 SOCKET_PATH="/tmp/wsd-test.sock"
-echo "Starting WSD Agent in background..."
-/app/agent --socket "$SOCKET_PATH" &
-AGENT_PID=$!
+AGENT_LOG="/tmp/wsd-schema-test.log"
+
+if [ -n "$KPS_IP" ]; then
+    echo "Running in VM_PROTECTION mode."
+    echo "Waiting for KPS gRPC port at $KPS_IP:50050 to accept TCP..."
+    if ! timeout 120s bash -c "until (echo > /dev/tcp/$KPS_IP/50050) 2>/dev/null; do sleep 2; done"; then
+        echo "ERROR: KPS at $KPS_IP:50050 did not become reachable within 120s."
+        exit 1
+    fi
+
+    echo "Starting WSD Agent (KEY_PROTECTION_VM) in background..."
+    KEY_PROTECTION_MECHANISM=KEY_PROTECTION_VM \
+    SERVICE_ROLE=SERVICE_ROLE_WSD \
+    KPS_IP="$KPS_IP" \
+        /app/agent --socket "$SOCKET_PATH" --kps-vm-ip "$KPS_IP" >"$AGENT_LOG" 2>&1 &
+    AGENT_PID=$!
+else
+    echo "Running in EMULATED mode."
+    echo "Starting WSD Agent in background..."
+    /app/agent --socket "$SOCKET_PATH" >"$AGENT_LOG" 2>&1 &
+    AGENT_PID=$!
+fi
 
 echo "Waiting for socket to be ready..."
 timeout 30s bash -c "until [ -S '$SOCKET_PATH' ]; do sleep 1; done"
 if [ $? -ne 0 ]; then
     echo "ERROR: WSD Agent socket was not created in time."
     kill -9 $AGENT_PID || true
+    cat "$AGENT_LOG" || true
     exit 1
 fi
 
