@@ -23,10 +23,16 @@ Facts established by reading the tree, not assumed:
     and `attestation_agent` (native, `image/attestation.service`) does too. Both units are
     already populating the journal with no code change.
 
-*   **ACOS ships Fluent Bit.** `image/cloudbuild.yaml:192` carries a commented-out
-    `systemd.mask=docker-events-collector-fluent-bit.service`, a unit that only exists
-    because COS bundles Fluent Bit. Confirmed against go-tpm-tools, which ships **only** a
-    `.conf` file — no binary, no unit — and starts the stock `fluent-bit.service`.
+*   **ACOS ships the Fluent Bit binary at `/usr/bin/fluent-bit`.** Read directly from COS's
+    `project-lakitu/app-admin/fluent-bit` package (ebuild `fluent-bit-4.2.2`), whose
+    `fluent-bit.service` has `ExecStart=/usr/bin/fluent-bit -c /etc/fluent-bit/fluent-bit.conf`.
+    go-tpm-tools relies on the same thing: it ships **only** a `.conf` — no binary, no unit.
+
+*   **`docker-events-collector-fluent-bit.service` does not run Fluent Bit.** Despite the
+    name, its `ExecStart` is `/usr/bin/docker events`; it pipes Docker events into the journal
+    and `Requires=docker.socket`. go-tpm-tools masks it (`bc_cloudbuild.yaml:193`); we leave
+    the mask commented out (`image/cloudbuild.yaml:193`). Either way it is unrelated to our
+    config, and leaving it alone is harmless.
 
 *   **Network topology.** The KPS guest is `192.168.100.3/24` with next hop `192.168.100.1`
     (`image/network_setup.sh`). The workload VM (`bc-guest`) is `192.168.100.2/24` with no
@@ -119,7 +125,7 @@ Logging, and everything above its `ExecStart` is plumbing for that job:
 ConditionPathExists=/etc/cloud-api-domains            # gates on metadata we cannot reach
 EnvironmentFile=/etc/fluent-bit/fluent_bit_defaults   # CLOUD_LOGGING_BASE_URL, unused by us
 ExecCondition=/bin/sh -c '... sudo sed -i "s#CLOUD_LOGGING_BASE_URL=...#" ...'
-Wants=docker-events-collector-fluent-bit.service get-cloud-api-domains.service  # both masked
+Wants=docker-events-collector-fluent-bit.service get-cloud-api-domains.service  # the latter is masked
 ExecStart=/usr/bin/fluent-bit -c /etc/fluent-bit/fluent-bit.conf
 ```
 
@@ -311,7 +317,7 @@ ours does none of those things.
     `/etc/systemd/system/fluent-bit.service.d/10-kps.conf` with `[Unit] ConditionPathExists=`
     and `[Service] ExecCondition=` (empty assignment resets each list). Fabricates nothing,
     but owns part of a unit without owning the unit, still inherits `EnvironmentFile` and the
-    masked `Wants=`, still clobbers COS's `fluent-bit.conf`, and a COS change to `ExecStart`
+    `Wants=` on a masked unit, still clobbers COS's `fluent-bit.conf`, and a COS change to `ExecStart`
     would silently change our behavior.
 *   **Rejected — `systemctl mask fluent-bit.service`.** Belt-and-braces against two Fluent Bit
     processes, but `logging-agent.target` has `Requires=fluent-bit.service`: a masked
