@@ -1,3 +1,4 @@
+pub mod telemetry;
 pub mod keymanager;
 pub use keymanager as proto;
 
@@ -18,6 +19,7 @@ pub fn ffi_call<F>(f: F) -> Status
 where
     F: FnOnce() -> Result<(), Status>,
 {
+    crate::telemetry::install_sanitized_panic_hook();
     match std::panic::catch_unwind(std::panic::AssertUnwindSafe(f)) {
         Ok(Ok(())) => Status::Success,
         Ok(Err(s)) => s,
@@ -30,6 +32,7 @@ pub fn ffi_call_i32<F>(f: F) -> i32
 where
     F: FnOnce() -> Result<i32, Status>,
 {
+    crate::telemetry::install_sanitized_panic_hook();
     match std::panic::catch_unwind(std::panic::AssertUnwindSafe(f)) {
         Ok(Ok(val)) => val,
         Ok(Err(s)) => -(s as i32),
