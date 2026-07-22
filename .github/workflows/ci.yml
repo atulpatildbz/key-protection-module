@@ -220,6 +220,11 @@ jobs:
       - name: Generate FFI Headers
         run: ./generate_ffi_headers.sh
 
+      - name: Check Rust KCC Telemetry Guardrails
+        run: |
+          ./scripts/validate-rust-kcc-telemetry.sh --self-test
+          ./scripts/validate-rust-kcc-telemetry.sh
+
       - name: Build Rust Libraries
         run: cargo build --workspace
 

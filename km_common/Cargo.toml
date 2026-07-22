@@ -12,6 +12,7 @@ zeroize = { workspace = true, features = ["derive"] }
 thiserror.workspace = true
 bssl-crypto.workspace = true
 clear_on_drop.workspace = true
+secrecy = "0.10.3"
 
 [features]
 test-utils = []
