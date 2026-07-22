@@ -9,6 +9,7 @@ fn caught_ffi_panics_do_not_emit_sensitive_diagnostics() {
     if std::env::var_os(CHILD_ENV).is_some() {
         let status = ffi_call(KccOperation::Open, || panic!("{SECRET_SENTINEL}"));
         assert_eq!(status, Status::InternalError);
+        km_common::flush_telemetry();
         return;
     }
 
@@ -35,4 +36,5 @@ fn caught_ffi_panics_do_not_emit_sensitive_diagnostics() {
     assert!(!output_text.contains(SECRET_SENTINEL));
     assert!(!output_text.contains("panicked at"));
     assert!(!output_text.contains("stack backtrace"));
+    assert!(output_text.contains("kcc_operation_failed"));
 }
