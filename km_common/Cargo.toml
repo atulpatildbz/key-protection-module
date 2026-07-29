@@ -12,12 +12,16 @@ zeroize = { workspace = true, features = ["derive"] }
 thiserror.workspace = true
 bssl-crypto.workspace = true
 clear_on_drop.workspace = true
+secrecy = "0.10.3"
+tracing.workspace = true
+tracing-subscriber.workspace = true
 
 [features]
 test-utils = []
 
 [dev-dependencies]
 hex.workspace = true
+strum = { version = "0.28.0", features = ["derive"] }
 
 [build-dependencies]
 prost-build.workspace = true
